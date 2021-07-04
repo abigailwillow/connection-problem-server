@@ -12,7 +12,7 @@ app.use(express.json());
 
 app.use((request, response, next) => {
     if (request.headers.authorization !== `Basic ${TOKEN}`) {
-        response.status(403).json({error: 'No valid authorization token supplied'})
+        response.status(403).json({message: 'No valid authorization token supplied'})
     }
     next();
 });
@@ -22,13 +22,12 @@ app.get('/scores', (request, response) => {
 });
 
 app.get('/score/:steamid', (request, response) => {
-    let steamid = request.params.steamid;
-    db.getScore(steamid, score => response.json({steamid: steamid, score: score}))
+    db.getScore(request.params.steamid, (steamid, name, score) => response.json({steamid: steamid, name: name, score: score}))
 });
 
 app.post('/score/:steamid', (request, response) => {
-    let steamid = request.params.steamid;
-    db.upsertScore(steamid, request.body.score, err => {
+    let steamid = request.body.steamid;
+    db.upsertScore(steamid, request.body.name, request.body.score, err => {
         if (!err) {
             response.json({message: `Set score for ${steamid} to ${request.body.score}`});
         } else {
