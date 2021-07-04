@@ -5,7 +5,7 @@ let db = require('./lib/database.js');
 const TOKEN = JSON.parse(fs.readFileSync('credentials.json')).token;
 
 app.listen(6969, () => {
-    console.log('API Server running on port 6969')
+    console.log('API Server running on port 6969');
 });
 
 app.use(express.json());
