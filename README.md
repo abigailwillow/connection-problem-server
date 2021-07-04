@@ -1,4 +1,4 @@
 # connection-problem-api
 API for Connection Problem S&amp;box addon
 
-Create a file called `token.json` with a random token in it or it wont work and run `npm i`
+Create a file called `token.json` with a random token in it and run `npm i` or it wont work
