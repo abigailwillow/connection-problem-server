@@ -76,7 +76,7 @@ typings/
 .fusebox/
 
 # Config files
-token.json
+credentials.json
 
 # Database 
 data.db

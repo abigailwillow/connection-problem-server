@@ -2,7 +2,7 @@ let fs = require('fs');
 let express = require('express');
 let app = express();
 let db = require('./lib/database.js');
-const TOKEN = JSON.parse(fs.readFileSync('token.json'));
+const TOKEN = JSON.parse(fs.readFileSync('credentials.json')).token;
 
 app.listen(6969, () => {
     console.log('API Server running on port 6969')
@@ -11,7 +11,7 @@ app.listen(6969, () => {
 app.use(express.json());
 
 app.use((request, response, next) => {
-    if (request.headers.authorization !== TOKEN) {
+    if (request.headers.authorization !== `Basic ${TOKEN}`) {
         response.status(403).json({error: 'No valid authorization token supplied'})
     }
     next();
