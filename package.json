@@ -1,0 +1,14 @@
+{
+  "name": "connection-problem-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "abbydiode",
+  "license": "ISC",
+  "dependencies": {
+    "sqlite3": "^5.0.2"
+  }
+}
