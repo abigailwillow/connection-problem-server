@@ -22,7 +22,8 @@ app.get('/scores', (request, response) => {
 });
 
 app.get('/score/:steamid', (request, response) => {
-    db.getScore(request.params.steamid, score => response.json({score: score}))
+    let steamid = request.params.steamid;
+    db.getScore(steamid, score => response.json({steamid: steamid, score: score}))
 });
 
 app.post('/score/:steamid', (request, response) => {
