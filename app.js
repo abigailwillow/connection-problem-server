@@ -58,7 +58,6 @@ leaderboardServer.on('connection', (socket, request) => {
 });
 
 server.on('upgrade', (request, socket, head) => {
-    console.log(request.url);
     if (/\/score\/\d+/.test(request.url)) {
         scoreServer.handleUpgrade(request, socket, head, ws => {
             scoreServer.emit('connection', ws, request);
