@@ -42,10 +42,10 @@ app.get('/score/:steamid', (request, response) => {
 });
 
 app.post('/score/:steamid', (request, response) => {
-    db.upsertScore(request.body.steamid, request.body.name, request.body.score, err => {
+    db.upsertScore(request.params.steamid, request.body.name, request.body.score, err => {
         if (!err) {
             response.status(200);
-            response.json({steamid: request.body.steamid, name: request.body.name, score: request.body.score});
+            response.json({steamid: request.params.steamid, name: request.body.name, score: request.body.score});
         } else {
             response.status(404);
             response.json({message: `Unable to update score for ${request.body.name}`, error: err});
