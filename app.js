@@ -31,9 +31,10 @@ server.on('connection', (socket, request) => {
             score = score ?? 0;
             socket.on('close', (code, reason) => {
                 let connectedTime = (Date.now() - connectedSince) / 1000;
-                console.log(`Player ${name || steamid} disconnected after ${connectedTime} seconds (${request.socket.remoteAddress}) ${reason ? `because of ${reason}`: ''}`);
+                console.log(`Player ${name ?? steamid} disconnected after ${connectedTime} seconds (${request.socket.remoteAddress}) ${reason ? `because of ${reason}`: ''}`);
                 db.upsertScore(steamid, name ?? steamid, score + connectedTime);
             });
+            socket.send({steamid: steamid, name: name ?? steamid, score: score});
         });
 
         setInterval(() => {
