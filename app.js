@@ -9,6 +9,7 @@ server.on('connection', (socket, request) => {
     let name;
     if (steamid) {
         let connectedSince = Date.now();
+        steamid = steamid[0]
         console.log(`Player ${steamid} connected (${request.socket.remoteAddress})`);
 
         socket.on('message', message => {
