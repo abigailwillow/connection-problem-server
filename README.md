@@ -1,4 +1,4 @@
-# connection-problem-api
+# Connection Problem Server
 
 Websocket server that handles connections for the Connection Problem gamemode
 
