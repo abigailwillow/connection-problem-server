@@ -1,53 +1,91 @@
+const http = require('http');
 const WebSocket = require('ws');
 const db = require('./lib/database.js');
-const server = new WebSocket.Server({
-    port: 6969,
-}, () => console.log(`Websocket server running on port ${server.address().port}`));
+const server = http.createServer();
+const scoreServer = new WebSocket.Server({noServer: true});
+const leaderboardServer = new WebSocket.Server({noServer: true});
+const port = 6969;
 
-server.on('connection', (socket, request) => {
+scoreServer.on('connection', (socket, request) => {
     let steamid = request.url.match(/\d+/);
     let name;
     if (steamid) {
         let connectedSince = Date.now();
         steamid = steamid[0]
-        console.log(`Player ${steamid} connected (${request.socket.remoteAddress})`);
+        console.log(`Player ${steamid} connected to score server (${request.socket.remoteAddress})`);
 
         socket.on('message', message => {
             let identification;
-            try {
-                identification = JSON.parse(message);
-            } catch (err) {
-                socket.send(JSON.stringify({message: "Invalid JSON, please try again", error: err.message}));
-                return;
-            }
+            try { identification = JSON.parse(message); } catch (err) { return; }
             if (identification.name) {
                 name = identification.name;
-                socket.send(JSON.stringify({message: `Name updated to ${name}`}));
-            } else {
-                socket.send(JSON.stringify({message: "No name specified, please try again"}));
+                console.log(`Name updated to ${name} (${steamid})`);
             }
         });
         
         db.getScore(steamid, score => {
             score = score ?? 0;
-            socket.on('close', (code, reason) => {
-                let connectedTime = (Date.now() - connectedSince) / 1000;
-                console.log(`Player ${name ?? steamid} disconnected after ${connectedTime} seconds (${request.socket.remoteAddress}) ${reason ? `because of ${reason}`: ''}`);
-                db.upsertScore(steamid, name ?? steamid, score + connectedTime);
+            let interval = setInterval(() => {
+                updateScore(steamid, name, score, connectedSince);
+            }, 30000);
+
+            socket.on('close', () => {
+                console.log(`Player ${name ?? steamid} disconnected from score server (${request.socket.remoteAddress})`);
+                updateScore(steamid, name, score, connectedSince);
+                clearInterval(interval);
             });
             socket.send(JSON.stringify({steamid: steamid, name: name ?? steamid, score: score}));
         });
-
-        // setInterval(() => {
-        //     db.getScores(10, scores => {
-        //         if (scores) {
-        //             socket.send(JSON.stringify(scores));
-        //         }
-        //     });
-        // }, 30000);
     } else {
         console.log(`Invalid SteamID tried to connect (${request.socket.remoteAddress})`)
         socket.send(JSON.stringify({message: 'Invalid SteamID'}));
         socket.close();
     }
 });
+
+leaderboardServer.on('connection', (socket, request) => {
+    console.log(`Player connected to leaderboard (${request.socket.remoteAddress})`);
+
+    sendLeaderboard(socket);
+    let interval = setInterval(() => {
+        sendLeaderboard(socket);
+    }, 30000);
+
+    socket.on('close', () => {
+        console.log(`Player disconnected from leaderboard (${request.socket.remoteAddress})`);
+        clearInterval(interval);
+    });
+});
+
+server.on('upgrade', (request, socket, head) => {
+    console.log(request.url);
+    if (/\/score\/\d+/.test(request.url)) {
+        scoreServer.handleUpgrade(request, socket, head, ws => {
+            scoreServer.emit('connection', ws, request);
+        });
+    } else if (request.url === '/leaderboard') {
+        leaderboardServer.handleUpgrade(request, socket, head, ws => {
+            leaderboardServer.emit('connection', ws, request);
+          });
+    } else {
+        socket.destroy();
+    }
+});
+
+server.listen(port, () => {
+    console.log(`Websocket server running on port ${port}`)
+});
+
+function sendLeaderboard(socket) {
+    db.getScores(10, scores => {
+        if (scores) {
+            socket.send(JSON.stringify(scores));
+        }
+    });
+}
+
+function updateScore(steamid, name, oldScore, connectedSince) {
+    let connectedTime = (Date.now() - connectedSince) / 1000;
+    name = name ?? steamid;
+    db.upsertScore(steamid, name, oldScore + connectedTime);
+}
