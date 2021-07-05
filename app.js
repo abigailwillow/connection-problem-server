@@ -9,8 +9,8 @@ const leaderboardServer = new WebSocket.Server({noServer: true});
 const port = 6969;
 
 scoreServer.on('connection', (socket, request) => {
-    let steamid = request.url.match(/\d+/);
     let name;
+    let steamid = request.url.match(/\d+/);
     if (steamid) {
         let connectedSince = Date.now();
         steamid = steamid[0]
@@ -27,14 +27,13 @@ scoreServer.on('connection', (socket, request) => {
         
         db.getScore(steamid, score => {
             score = score ?? 0;
-            let schedule = cron.schedule(('*/30 * * * * *'), () => {
+            cron.schedule(('*/30 * * * * *'), () => {
                 updateScore(steamid, name, score, connectedSince);
             });
 
             socket.on('close', () => {
                 console.log(`Player ${name ?? steamid} disconnected from score server (${request.socket.remoteAddress})`);
                 updateScore(steamid, name, score, connectedSince);
-                schedule.destroy();
             });
             socket.send(JSON.stringify({steamid: steamid, name: name ?? steamid, score: score}));
         });
@@ -49,13 +48,11 @@ leaderboardServer.on('connection', (socket, request) => {
     console.log(`Player connected to leaderboard (${request.socket.remoteAddress})`);
 
     sendLeaderboard(socket);
-    let schedule = cron.schedule(('*/30 * * * * *'), () => {
+    cron.schedule(('*/30 * * * * *'), () => {
         sendLeaderboard(socket);
     });
 
     socket.on('close', () => {
-        console.log(`Player disconnected from leaderboard (${request.socket.remoteAddress})`);
-       schedule.destroy();
     });
 });
 
