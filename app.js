@@ -1,54 +1,51 @@
-let fs = require('fs');
-let express = require('express');
-let app = express();
-let db = require('./lib/database.js');
-const TOKEN = JSON.parse(fs.readFileSync('credentials.json')).token;
+const WebSocket = require('ws');
+const db = require('./lib/database.js');
+const server = new WebSocket.Server({
+    port: 6969,
+}, () => console.log(`Websocket server running on port ${server.address().port}`));
 
-app.listen(6969, () => {
-    console.log('API Server running on port 6969');
-});
+server.on('connection', (socket, request) => {
+    let steamid = request.url.match(/\d+/);
+    let name;
+    if (steamid) {
+        let connectedSince = Date.now();
+        console.log(`Player ${steamid} connected (${request.socket.remoteAddress})`);
 
-app.use(express.json());
+        socket.on('message', message => {
+            let identification;
+            try {
+                identification = JSON.parse(message);
+            } catch (err) {
+                socket.send(JSON.stringify({message: "Invalid JSON, please try again", error: err.message}));
+                return;
+            }
+            if (identification.name) {
+                name = identification.name;
+                socket.send(JSON.stringify({message: `Name updated to ${name}`}));
+            } else {
+                socket.send(JSON.stringify({message: "No name specified, please try again"}));
+            }
+        });
+        
+        db.getScore(steamid, score => {
+            score = score ?? 0;
+            socket.on('close', (code, reason) => {
+                let connectedTime = (Date.now() - connectedSince) / 1000;
+                console.log(`Player ${steamid} disconnected after ${connectedTime} seconds (${request.socket.remoteAddress}) ${reason ? `because of ${reason}`: ''}`);
+                db.upsertScore(steamid, name ?? steamid, score + connectedTime);
+            });
+        });
 
-app.use((request, response, next) => {
-    if (request.headers.authorization !== `Basic ${TOKEN}`) {
-        response.status(403).json({message: 'No valid authorization token supplied'});
+        setInterval(() => {
+            db.getScores(10, scores => {
+                if (scores) {
+                    socket.send(JSON.stringify(scores));
+                }
+            });
+        }, 30000);
+    } else {
+        console.log(`Invalid SteamID tried to connect (${request.socket.remoteAddress})`)
+        socket.send(JSON.stringify({message: 'Invalid SteamID'}));
+        socket.close();
     }
-    next();
-});
-
-app.get('/scores', (request, response) => {
-    db.getScores(request.query.limit, leaderboard => {
-        if (leaderboard) {
-            response.status(200);
-            response.json(leaderboard);
-        } else {
-            response.status(404);
-            response.json({message: "Could not get scores"});
-        }
-    });
-});
-
-app.get('/score/:steamid', (request, response) => {
-    db.getScore(request.params.steamid, (steamid, name, score) => {
-        if (steamid) {
-            response.status(200);
-            response.json({steamid: steamid, name: name, score: score});
-        } else {
-            response.status(404);
-            response.json({message: `Could not get score for SteamID ${request.params.steamid}`});
-        } 
-    });
-});
-
-app.post('/score/:steamid', (request, response) => {
-    db.upsertScore(request.params.steamid, request.body.name, request.body.score, err => {
-        if (!err) {
-            response.status(200);
-            response.json({steamid: request.params.steamid, name: request.body.name, score: request.body.score});
-        } else {
-            response.status(404);
-            response.json({message: `Unable to update score for ${request.body.name}`, error: err});
-        }
-    });
 });
