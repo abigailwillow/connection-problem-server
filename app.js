@@ -1,5 +1,7 @@
+const fs = require('fs');
 const http = require('http');
 const WebSocket = require('ws');
+const cron = require('node-cron');
 const db = require('./lib/database.js');
 const server = http.createServer();
 const scoreServer = new WebSocket.Server({noServer: true});
@@ -25,14 +27,14 @@ scoreServer.on('connection', (socket, request) => {
         
         db.getScore(steamid, score => {
             score = score ?? 0;
-            let interval = setInterval(() => {
+            let schedule = cron.schedule(('*/30 * * * * *'), () => {
                 updateScore(steamid, name, score, connectedSince);
-            }, 30000);
+            });
 
             socket.on('close', () => {
                 console.log(`Player ${name ?? steamid} disconnected from score server (${request.socket.remoteAddress})`);
                 updateScore(steamid, name, score, connectedSince);
-                clearInterval(interval);
+                schedule.destroy();
             });
             socket.send(JSON.stringify({steamid: steamid, name: name ?? steamid, score: score}));
         });
@@ -47,13 +49,13 @@ leaderboardServer.on('connection', (socket, request) => {
     console.log(`Player connected to leaderboard (${request.socket.remoteAddress})`);
 
     sendLeaderboard(socket);
-    let interval = setInterval(() => {
+    let schedule = cron.schedule(('*/30 * * * * *'), () => {
         sendLeaderboard(socket);
-    }, 30000);
+    });
 
     socket.on('close', () => {
         console.log(`Player disconnected from leaderboard (${request.socket.remoteAddress})`);
-        clearInterval(interval);
+       schedule.destroy();
     });
 });
 
@@ -69,6 +71,18 @@ server.on('upgrade', (request, socket, head) => {
     } else {
         socket.destroy();
     }
+});
+
+cron.schedule('* * * * *', () => {
+    console.log('Making a backup of the database');
+    if (!fs.existsSync('backup')) {
+        fs.mkdirSync('backup')
+    }
+    fs.copyFile('data.db', `backup/data-${Date.now()}.db`, err => {
+        if (err) {
+            throw err; 
+        }
+    });
 });
 
 server.listen(port, () => {
