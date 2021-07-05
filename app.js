@@ -38,13 +38,13 @@ server.on('connection', (socket, request) => {
             socket.send(JSON.stringify({steamid: steamid, name: name ?? steamid, score: score}));
         });
 
-        setInterval(() => {
-            db.getScores(10, scores => {
-                if (scores) {
-                    socket.send(JSON.stringify(scores));
-                }
-            });
-        }, 30000);
+        // setInterval(() => {
+        //     db.getScores(10, scores => {
+        //         if (scores) {
+        //             socket.send(JSON.stringify(scores));
+        //         }
+        //     });
+        // }, 30000);
     } else {
         console.log(`Invalid SteamID tried to connect (${request.socket.remoteAddress})`)
         socket.send(JSON.stringify({message: 'Invalid SteamID'}));
