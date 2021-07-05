@@ -73,7 +73,7 @@ server.on('upgrade', (request, socket, head) => {
     }
 });
 
-cron.schedule('* * * * *', () => {
+cron.schedule('0 0 * * *', () => {
     console.log('Making a backup of the database');
     if (!fs.existsSync('backup')) {
         fs.mkdirSync('backup')
