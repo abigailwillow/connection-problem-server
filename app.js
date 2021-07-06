@@ -25,7 +25,7 @@ scoreServer.on('connection', (client, request) => {
     
                 client.on('close', () => {
                     console.log(`${steamUser.nickname} disconnected from score server (${steamUser.steamID}/${request.socket.remoteAddress})`);
-                    updateScore(steamid, name, score, connectedSince);
+                    updateScore(steamid, steamUser.nickname, score, connectedSince);
                 });
                 client.send(JSON.stringify({steamid: steamUser.steamID, name: steamUser.nickname, score: score}));
             });
