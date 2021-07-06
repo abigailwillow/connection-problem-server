@@ -1,70 +1,49 @@
 const fs = require('fs');
 const http = require('http');
 const WebSocket = require('ws');
+const SteamAPI = require('steamapi');
 const cron = require('node-cron');
 const db = require('./lib/database.js');
 const server = http.createServer();
+const steam = new SteamAPI(JSON.parse(fs.readFileSync('credentials.json')).steamApiKey);
 const scoreServer = new WebSocket.Server({noServer: true});
 const leaderboardServer = new WebSocket.Server({noServer: true});
 const port = 6969;
 
-scoreServer.on('connection', (socket, request) => {
-    let name;
+scoreServer.on('connection', (client, request) => {
     let steamid = request.url.match(/\d+/);
     if (steamid) {
         let connectedSince = Date.now();
-        steamid = steamid[0]
-        console.log(`Player ${steamid} connected to score server (${request.socket.remoteAddress})`);
+        steam.getUserSummary(steamid[0]).then(steamUser => {
+            console.log(`${steamUser.nickname} connected to score server (${steamUser.steamID}/${request.socket.remoteAddress})`);
 
-        socket.on('message', message => {
-            let identification;
-            try { identification = JSON.parse(message); } catch (err) { return; }
-            if (identification.name) {
-                name = identification.name;
-                console.log(`Name updated to ${name} (${steamid})`);
-            }
-        });
-        
-        db.getScore(steamid, score => {
-            score = score ?? 0;
-            cron.schedule(('*/30 * * * * *'), () => {
-                updateScore(steamid, name, score, connectedSince);
+            db.getScore(steamid, score => {
+                score = score ?? 0;
+                cron.schedule(('*/30 * * * * *'), () => {
+                    updateScore(steamUser.steamID, steamUser.nickname, score, connectedSince);
+                });
+    
+                client.on('close', () => {
+                    console.log(`${steamUser.nickname} disconnected from score server (${steamUser.steamID}/${request.socket.remoteAddress})`);
+                    updateScore(steamid, name, score, connectedSince);
+                });
+                client.send(JSON.stringify({steamid: steamUser.steamID, name: steamUser.nickname, score: score}));
             });
-
-            socket.on('close', () => {
-                console.log(`Player ${name ?? steamid} disconnected from score server (${request.socket.remoteAddress})`);
-                updateScore(steamid, name, score, connectedSince);
-            });
-            socket.send(JSON.stringify({steamid: steamid, name: name ?? steamid, score: score}));
         });
     } else {
         console.log(`Invalid SteamID tried to connect (${request.socket.remoteAddress})`)
-        socket.send(JSON.stringify({message: 'Invalid SteamID'}));
-        socket.close();
+        client.send(JSON.stringify({message: 'Invalid SteamID'}));
+        client.close();
     }
 });
 
-leaderboardServer.on('connection', (socket, request) => {
+leaderboardServer.on('connection', (client, request) => {
     console.log(`Player connected to leaderboard (${request.socket.remoteAddress})`);
-    sendLeaderboard(socket);
+    sendLeaderboard(client);
 
-    socket.on('close', () => {
+    client.on('close', () => {
         console.log(`Player disconnected from leaderboard (${request.socket.remoteAddress})`);
     });
-});
-
-server.on('upgrade', (request, socket, head) => {
-    if (/\/score\/\d+/.test(request.url)) {
-        scoreServer.handleUpgrade(request, socket, head, ws => {
-            scoreServer.emit('connection', ws, request);
-        });
-    } else if (request.url === '/leaderboard') {
-        leaderboardServer.handleUpgrade(request, socket, head, ws => {
-            leaderboardServer.emit('connection', ws, request);
-          });
-    } else {
-        socket.destroy();
-    }
 });
 
 // Attempt to update clients' leaderboard every 30 seconds
@@ -89,14 +68,37 @@ cron.schedule('0 0 * * *', () => {
     });
 });
 
+server.on('upgrade', (request, socket, head) => {
+    if (/\/score\/\d+/.test(request.url)) {
+        scoreServer.handleUpgrade(request, socket, head, ws => {
+            scoreServer.emit('connection', ws, request);
+        });
+    } else if (request.url === '/leaderboard') {
+        leaderboardServer.handleUpgrade(request, socket, head, ws => {
+            leaderboardServer.emit('connection', ws, request);
+          });
+    } else {
+        socket.destroy();
+    }
+});
+
 server.listen(port, () => {
     console.log(`Websocket server running on port ${port}`)
 });
 
-function sendLeaderboard(socket) {
+function sendLeaderboard(client) {
     db.getScores(10, scores => {
         if (scores) {
-            socket.send(JSON.stringify(scores));
+            let index = 0;
+            scores.forEach(score => {
+                steam.getUserSummary(score.steamid).then(steamUser => {
+                    score.avatar = steamUser.avatar.small;
+                    
+                    if (++index >= scores.length) {
+                        client.send(JSON.stringify(scores));
+                    }
+                });
+            });
         }
     });
 }
