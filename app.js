@@ -92,6 +92,7 @@ function sendLeaderboard(client) {
             let index = 0;
             scores.forEach(score => {
                 steam.getUserSummary(score.steamid).then(steamUser => {
+                    score.name = steamUser.nickname;
                     score.avatar = steamUser.avatar.small;
                     
                     if (++index >= scores.length) {
