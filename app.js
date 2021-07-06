@@ -46,13 +46,10 @@ scoreServer.on('connection', (socket, request) => {
 
 leaderboardServer.on('connection', (socket, request) => {
     console.log(`Player connected to leaderboard (${request.socket.remoteAddress})`);
-
     sendLeaderboard(socket);
-    cron.schedule(('*/30 * * * * *'), () => {
-        sendLeaderboard(socket);
-    });
 
     socket.on('close', () => {
+        console.log(`Player disconnected from leaderboard (${request.socket.remoteAddress})`);
     });
 });
 
@@ -70,6 +67,16 @@ server.on('upgrade', (request, socket, head) => {
     }
 });
 
+// Attempt to update clients' leaderboard every 30 seconds
+cron.schedule(('*/30 * * * * *'), () => {
+    leaderboardServer.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            sendLeaderboard(client);
+        }
+    });
+});
+
+// Create a database backup every day at 00:00
 cron.schedule('0 0 * * *', () => {
     console.log('Making a backup of the database');
     if (!fs.existsSync('backup')) {
