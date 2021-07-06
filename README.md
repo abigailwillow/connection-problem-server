@@ -6,4 +6,4 @@ This is the Connection Problem **server**, for the client see https://github.com
 
 ## Setup
 
-Run `npm i` and create a `credentials.json` file or it won't work
+Run `npm i` and create a `credentials.json` file that looks like [this](credentials-example.json) or it won't work
