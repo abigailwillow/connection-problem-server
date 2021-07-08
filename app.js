@@ -23,21 +23,24 @@ scoreServer.on('connection', (client, request) => {
             db.getScore(steamid, score => {
                 score = score ?? 0;
                 schedule = cron.schedule(('*/30 * * * * *'), () => {
-                    updateScore(steamUser.steamID, steamUser.nickname, score, connectedSince);
+                    updateScore(steamUser.steamID, score, connectedSince);
                 });
     
                 client.on('close', () => {
                     console.log(`${steamUser.nickname} disconnected from score server (${steamUser.steamID}/${request.socket.remoteAddress})`);
-                    updateScore(steamid, steamUser.nickname, score, connectedSince);
+                    updateScore(steamUser.steamID, score, connectedSince);
                     schedule.destroy();
                 });
                 client.send(JSON.stringify({score: score}));
             });
+        }).catch(() => {
+            client.send(JSON.stringify({message: `Could not retrieve Steam data for user with SteamID '${steamid}'`}));
+            client.close(1008);
         });
     } else {
         console.log(`Invalid SteamID tried to connect (${request.socket.remoteAddress})`)
-        client.send(JSON.stringify({message: 'Invalid SteamID'}));
-        client.close();
+        client.send(JSON.stringify({message: 'No SteamID found in request URL'}));
+        client.close(1008);
     }
 });
 
@@ -108,8 +111,7 @@ function sendLeaderboard(client) {
     });
 }
 
-function updateScore(steamid, name, oldScore, connectedSince) {
+function updateScore(steamid, oldScore, connectedSince) {
     let connectedTime = (Date.now() - connectedSince) / 1000;
-    name = name ?? steamid;
-    db.upsertScore(steamid, name, oldScore + connectedTime);
+    db.upsertScore(steamid, oldScore + connectedTime);
 }
