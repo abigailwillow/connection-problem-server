@@ -1,3 +1,5 @@
+'use strict';
+
 const fs = require('fs');
 const http = require('http');
 const WebSocket = require('ws');
@@ -14,18 +16,20 @@ scoreServer.on('connection', (client, request) => {
     let steamid = request.url.match(/\d+/);
     if (steamid) {
         let connectedSince = Date.now();
+        let schedule;
         steam.getUserSummary(steamid[0]).then(steamUser => {
             console.log(`${steamUser.nickname} connected to score server (${steamUser.steamID}/${request.socket.remoteAddress})`);
 
             db.getScore(steamid, score => {
                 score = score ?? 0;
-                cron.schedule(('*/30 * * * * *'), () => {
+                schedule = cron.schedule(('*/30 * * * * *'), () => {
                     updateScore(steamUser.steamID, steamUser.nickname, score, connectedSince);
                 });
     
                 client.on('close', () => {
                     console.log(`${steamUser.nickname} disconnected from score server (${steamUser.steamID}/${request.socket.remoteAddress})`);
                     updateScore(steamid, steamUser.nickname, score, connectedSince);
+                    schedule.destroy();
                 });
                 client.send(JSON.stringify({score: score}));
             });
