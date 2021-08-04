@@ -10,7 +10,7 @@ const server = http.createServer();
 const steam = new SteamAPI(JSON.parse(fs.readFileSync('credentials.json')).steamApiKey);
 const scoreServer = new WebSocket.Server({noServer: true});
 const leaderboardServer = new WebSocket.Server({noServer: true});
-const port = process.env.PORT || 6969;
+const port = process.env.PORT || 80;
 
 scoreServer.on('connection', (client, request) => {
     let steamid = request.url.match(/\d+/);
